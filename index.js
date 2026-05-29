@@ -1,4 +1,7 @@
 import dotenv from 'dotenv';
+
+// Load .env file for local development.
+// On Vercel, env vars are injected by the platform — this is a no-op.
 dotenv.config();
 
 import express from 'express';
@@ -34,12 +37,12 @@ const ensureDb = async () => {
   }
 };
 
-// Export the app for Vercel serverless (used by api/index.js)
+// Export for Vercel serverless (used by api/index.js)
 export { app, ensureDb };
 
-// Only start the server when running directly (not imported by Vercel)
-const port = process.env.PORT || 3000;
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+// Only start the local dev server when NOT on Vercel
+if (!process.env.VERCEL) {
+  const port = process.env.PORT || 3000;
   initDb().then(() => {
     app.listen(port, () => {
       console.log(`Backend server running on port ${port}`);
