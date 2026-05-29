@@ -1,4 +1,6 @@
 import express from 'express';
+export { app, ensureDb };
+export default app;
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDb } from './db.js';
@@ -6,7 +8,8 @@ import { initDb } from './db.js';
 import authRoutes from './routes/auth.js';
 import needsRoutes from './routes/needs.js';
 import messagesRoutes from './routes/messages.js';
-
+export { app, ensureDb };
+export default app;
 dotenv.config();
 
 const app = express();
@@ -48,3 +51,4 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
       console.error('Failed to init DB on startup', err);
   });
 }
+export default app;
