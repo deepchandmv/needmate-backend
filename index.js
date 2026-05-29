@@ -24,7 +24,7 @@ app.use('/api/needs', needsRoutes);
 app.use('/api/messages', messagesRoutes);
 
 // Test DB Route
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
@@ -32,13 +32,25 @@ app.get('/api/health', (req, res) => {
 let dbInitialized = false;
 const ensureDb = async () => {
   if (!dbInitialized) {
-    await initDb();
-    dbInitialized = true;
+    try {
+      await initDb();
+      dbInitialized = true;
+    } catch (err) {
+      console.error('DB init error:', err);
+    }
   }
 };
 
-// Export for Vercel serverless (used by api/index.js)
+// Named export for any external use
 export { app, ensureDb };
+
+// Default export: Vercel serverless handler
+// Vercel requires the default export to be a function (req, res) => {}
+// This runs DB init once per cold start, then delegates to Express
+export default async function handler(req, res) {
+  await ensureDb();
+  app(req, res);
+}
 
 // Only start the local dev server when NOT on Vercel
 if (!process.env.VERCEL) {
