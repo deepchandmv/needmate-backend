@@ -2,15 +2,26 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-// Always use Postgres (Neon) via DATABASE_URL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+// Lazy pool initialization — pool is created on first use,
+// after dotenv has loaded environment variables in index.js.
+// This avoids the ES module hoisting issue where db.js evaluates
+// before dotenv.config() runs in index.js.
+let pool = null;
+
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
+  }
+  return pool;
+}
 
 export const initDb = async () => {
+  const db = getPool();
   try {
-    await pool.query(`
+    await db.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -29,7 +40,7 @@ export const initDb = async () => {
     // Add columns if they don't exist (idempotent migration)
     const addColumnIfNotExists = async (table, column, type) => {
       try {
-        await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${type}`);
+        await db.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${type}`);
       } catch (e) { /* ignore */ }
     };
 
@@ -38,7 +49,7 @@ export const initDb = async () => {
     await addColumnIfNotExists('users', 'student_class', 'TEXT');
     await addColumnIfNotExists('users', 'is_verified', 'INTEGER DEFAULT 0');
 
-    await pool.query(`
+    await db.query(`
       CREATE TABLE IF NOT EXISTS needs (
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
@@ -86,4 +97,11 @@ export const initDb = async () => {
   }
 };
 
-export default pool;
+// Export a proxy that lazily creates the pool
+// Routes import `pool` and call pool.query() — this ensures
+// the pool is created after dotenv.config() has run.
+export default {
+  query: (...args) => getPool().query(...args),
+  connect: (...args) => getPool().connect(...args),
+  end: (...args) => getPool().end(...args),
+};

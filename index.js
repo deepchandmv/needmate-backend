@@ -1,16 +1,13 @@
-import express from 'express';
-export { app, ensureDb };
-export default app;
-import cors from 'cors';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
+import cors from 'cors';
 import { initDb } from './db.js';
 
 import authRoutes from './routes/auth.js';
 import needsRoutes from './routes/needs.js';
 import messagesRoutes from './routes/messages.js';
-export { app, ensureDb };
-export default app;
-dotenv.config();
 
 const app = express();
 
@@ -37,7 +34,7 @@ const ensureDb = async () => {
   }
 };
 
-// Export the app for Vercel serverless
+// Export the app for Vercel serverless (used by api/index.js)
 export { app, ensureDb };
 
 // Only start the server when running directly (not imported by Vercel)
@@ -51,4 +48,3 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
       console.error('Failed to init DB on startup', err);
   });
 }
-export default app;
