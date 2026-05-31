@@ -41,16 +41,8 @@ const ensureDb = async () => {
   }
 };
 
-// Named export for any external use
+// Named exports for api/index.js (Vercel serverless handler)
 export { app, ensureDb };
-
-// Default export: Vercel serverless handler
-// Vercel requires the default export to be a function (req, res) => {}
-// This runs DB init once per cold start, then delegates to Express
-export default async function handler(req, res) {
-  await ensureDb();
-  app(req, res);
-}
 
 // Only start the local dev server when NOT on Vercel
 if (!process.env.VERCEL) {
