@@ -40,9 +40,9 @@ function getTransporter() {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
   });
 }
 
@@ -134,8 +134,13 @@ router.post('/register', async (req, res) => {
     // Check if email already exists in verified users
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
+      // Also clean up any stale pending registration for this email
+      await pool.query('DELETE FROM pending_registrations WHERE email = $1', [email]);
       return res.status(400).json({ error: 'Email already registered. Please login instead.' });
     }
+
+    // Auto-clean expired pending registrations (older than 10 minutes) to prevent table bloat
+    await pool.query("DELETE FROM pending_registrations WHERE otp_expires_at < NOW() - INTERVAL '10 minutes'");
 
     // Hash password before storing
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -153,8 +158,19 @@ router.post('/register', async (req, res) => {
       [name, email, hashedPassword, student_class, otp, otpExpiresAt]
     );
 
-    // Send OTP via email
-    const emailResult = await sendOTPEmail(email, otp, 'verification');
+    // Send OTP via email — catch SMTP failures gracefully
+    let emailResult;
+    try {
+      emailResult = await sendOTPEmail(email, otp, 'verification');
+    } catch (emailErr) {
+      console.error('SMTP error during registration:', emailErr.message);
+      // Don't delete the pending registration — user can retry with resend-otp
+      return res.status(200).json({
+        message: 'Account prepared. Email delivery was slow — please use "Resend OTP" on the verification page.',
+        email: email,
+        emailWarning: true
+      });
+    }
 
     const response = { 
       message: 'OTP sent to your email. Please verify to complete registration.',
@@ -266,8 +282,17 @@ router.post('/resend-registration-otp', async (req, res) => {
       [otp, otpExpiresAt, email]
     );
 
-    // Send new OTP email
-    const emailResult = await sendOTPEmail(email, otp, 'verification');
+    // Send new OTP email — catch SMTP failures gracefully
+    let emailResult;
+    try {
+      emailResult = await sendOTPEmail(email, otp, 'verification');
+    } catch (emailErr) {
+      console.error('SMTP error during resend-otp:', emailErr.message);
+      return res.status(200).json({
+        message: 'A new code was prepared. Email delivery is slow — please wait or try resending.',
+        emailWarning: true
+      });
+    }
 
     const response = { message: 'New OTP sent to your email.' };
     if (emailResult.mock) {
@@ -378,8 +403,17 @@ router.post('/forgot-password', async (req, res) => {
     
     await pool.query('UPDATE users SET reset_otp = $1, reset_otp_expires_at = $2 WHERE email = $3', [otp, expiresAt, email]);
 
-    // Send OTP via email
-    const emailResult = await sendOTPEmail(email, otp, 'reset');
+    // Send OTP via email — catch SMTP failures gracefully
+    let emailResult;
+    try {
+      emailResult = await sendOTPEmail(email, otp, 'reset');
+    } catch (emailErr) {
+      console.error('SMTP error during forgot-password:', emailErr.message);
+      return res.status(200).json({
+        message: 'Reset request registered. Email delivery was slow — please try resending or waiting a moment.',
+        emailWarning: true
+      });
+    }
 
     const response = { message: 'Password reset OTP sent to your email.' };
     if (emailResult.mock) {
