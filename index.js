@@ -18,26 +18,40 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Root route — so visiting / doesn't hang
+app.get('/', (req, res) => {
+  res.json({ message: 'NeedMate Backend API', status: 'running', time: new Date() });
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date() });
+});
+
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/needs', needsRoutes);
 app.use('/api/messages', messagesRoutes);
 
-// Test DB Route
-app.get('/api/health', async (req, res) => {
-  res.json({ status: 'ok', time: new Date() });
+// 404 catch-all — so unmatched routes always get a response
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found', path: req.path });
 });
 
 // Initialize DB tables on first load
 let dbInitialized = false;
 const ensureDb = async () => {
-  if (!dbInitialized) {
-    try {
-      await initDb();
-      dbInitialized = true;
-    } catch (err) {
-      console.error('DB init error:', err);
-    }
+  if (dbInitialized) return;
+  // Skip DB init if DATABASE_URL is not set (prevents 10s hang on Vercel)
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL not set — skipping DB init');
+    return;
+  }
+  try {
+    await initDb();
+    dbInitialized = true;
+  } catch (err) {
+    console.error('DB init error:', err.message);
   }
 };
 
@@ -52,6 +66,6 @@ if (!process.env.VERCEL) {
       console.log(`Backend server running on port ${port}`);
     });
   }).catch(err => {
-      console.error('Failed to init DB on startup', err);
+    console.error('Failed to init DB on startup', err);
   });
 }
