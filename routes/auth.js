@@ -168,7 +168,8 @@ router.post('/register', async (req, res) => {
       return res.status(200).json({
         message: 'Account prepared. Email delivery was slow — please use "Resend OTP" on the verification page.',
         email: email,
-        emailWarning: true
+        emailWarning: true,
+        simulatedOtp: otp
       });
     }
 
@@ -290,7 +291,8 @@ router.post('/resend-registration-otp', async (req, res) => {
       console.error('SMTP error during resend-otp:', emailErr.message);
       return res.status(200).json({
         message: 'A new code was prepared. Email delivery is slow — please wait or try resending.',
-        emailWarning: true
+        emailWarning: true,
+        simulatedOtp: otp
       });
     }
 
@@ -411,7 +413,8 @@ router.post('/forgot-password', async (req, res) => {
       console.error('SMTP error during forgot-password:', emailErr.message);
       return res.status(200).json({
         message: 'Reset request registered. Email delivery was slow — please try resending or waiting a moment.',
-        emailWarning: true
+        emailWarning: true,
+        simulatedOtp: otp
       });
     }
 
