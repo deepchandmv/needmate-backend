@@ -58,6 +58,13 @@ const ensureDb = async () => {
 // Named exports for api/index.js (Vercel serverless handler)
 export { app, ensureDb };
 
+// Default export: Vercel also auto-detects index.js as a function for "/"
+// This ensures "/" doesn't crash with "Invalid export"
+export default async function handler(req, res) {
+  await ensureDb();
+  app(req, res);
+}
+
 // Only start the local dev server when NOT on Vercel
 if (!process.env.VERCEL) {
   const port = process.env.PORT || 3000;
