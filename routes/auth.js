@@ -3,6 +3,11 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../db.js';
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force IPv4 DNS resolution to prevent EHOSTUNREACH errors
+// when connecting to smtp.gmail.com on IPv6-incompatible networks
+dns.setDefaultResultOrder('ipv4first');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key';
